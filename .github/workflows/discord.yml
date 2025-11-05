@@ -1,32 +1,59 @@
-name: Notify on New Files
+name: Discord File Changes Notification
+
 on:
-  push:
-    branches:
-      - main  # or whichever branch you want to monitor
+push:
+branches:
+- main  # Change this to your branch if needed
 
 jobs:
-  notify:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+notify:
+runs-on: ubuntu-latest
 
-      - name: Get list of added files
-        id: diff
-        run: |
-          git fetch origin ${{ github.event.before }} --depth=1 || true
-          ADDED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^A' | cut -f2)
-          echo "added_files=$ADDED" >> $GITHUB_OUTPUT
+````
+steps:
+  - name: Checkout code
+    uses: actions/checkout@v4
 
-      - name: Send Discord notification
-        if: steps.diff.outputs.added_files != ''
-        uses: Ilshidur/action-discord@v2
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          message: |
-            📁 **New file(s) added to `${{ github.repository }}`**
-            Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})
-            Added files:
-            ```
-            ${{ steps.diff.outputs.added_files }}
-            ```
+  - name: Get added files
+    id: added
+    run: |
+      git fetch origin ${{ github.event.before }} --depth=1 || true
+      ADDED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^A' | cut -f2)
+      echo "added_files=$ADDED" >> $GITHUB_OUTPUT
+
+  - name: Get modified files
+    id: modified
+    run: |
+      git fetch origin ${{ github.event.before }} --depth=1 || true
+      MODIFIED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^M' | cut -f2)
+      echo "modified_files=$MODIFIED" >> $GITHUB_OUTPUT
+
+  - name: Get removed files
+    id: removed
+    run: |
+      git fetch origin ${{ github.event.before }} --depth=1 || true
+      REMOVED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^D' | cut -f2)
+      echo "removed_files=$REMOVED" >> $GITHUB_OUTPUT
+
+  - name: Send Discord notification
+    if: steps.added.outputs.added_files != '' || steps.modified.outputs.modified_files != '' || steps.removed.outputs.removed_files != ''
+    uses: Ilshidur/action-discord@v2
+    with:
+      webhook: ${{ secrets.DISCORD_WEBHOOK }}
+      message: |
+        📁 **Changes in `${{ github.repository }}`**
+        Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})
+
+        Added files:
+        ```
+        ${{ steps.added.outputs.added_files }}
+        ```
+        Modified files:
+        ```
+        ${{ steps.modified.outputs.modified_files }}
+        ```
+        Removed files:
+        ```
+        ${{ steps.removed.outputs.removed_files }}
+        ```
+````
