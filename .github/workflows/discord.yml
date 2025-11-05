@@ -1,8 +1,4 @@
-Those triple backticks (\`\`\`) and missing indentation under `jobs:` are causing the workflow to break.
 
-Here’s your **corrected and valid version** — ready to paste into `.github/workflows/discord.yml`:
-
-```yaml
 name: Discord File Changes Notification
 
 on:
