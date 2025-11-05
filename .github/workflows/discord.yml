@@ -1,57 +1,59 @@
 name: Discord File Changes Notification
 
 on:
-  push:
-    branches:
-      - main
+push:
+branches:
+- main
 
 jobs:
-  notify:
-    runs-on: ubuntu-latest
+notify:
+runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+```
+steps:
+  - name: Checkout code
+    uses: actions/checkout@v4
 
-      - name: Get added files
-        id: added
-        run: |
-          git fetch origin ${{ github.event.before }} --depth=1 || true
-          ADDED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^A' | cut -f2)
-          echo "added_files=$ADDED" >> $GITHUB_OUTPUT
+  - name: Get added files
+    id: added
+    run: |
+      git fetch origin ${{ github.event.before }} --depth=1 || true
+      ADDED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^A' | cut -f2)
+      echo "added_files=$ADDED" >> $GITHUB_OUTPUT
 
-      - name: Get modified files
-        id: modified
-        run: |
-          git fetch origin ${{ github.event.before }} --depth=1 || true
-          MODIFIED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^M' | cut -f2)
-          echo "modified_files=$MODIFIED" >> $GITHUB_OUTPUT
+  - name: Get modified files
+    id: modified
+    run: |
+      git fetch origin ${{ github.event.before }} --depth=1 || true
+      MODIFIED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^M' | cut -f2)
+      echo "modified_files=$MODIFIED" >> $GITHUB_OUTPUT
 
-      - name: Get removed files
-        id: removed
-        run: |
-          git fetch origin ${{ github.event.before }} --depth=1 || true
-          REMOVED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^D' | cut -f2)
-          echo "removed_files=$REMOVED" >> $GITHUB_OUTPUT
+  - name: Get removed files
+    id: removed
+    run: |
+      git fetch origin ${{ github.event.before }} --depth=1 || true
+      REMOVED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^D' | cut -f2)
+      echo "removed_files=$REMOVED" >> $GITHUB_OUTPUT
 
-      - name: Send Discord notification
-        if: steps.added.outputs.added_files != '' || steps.modified.outputs.modified_files != '' || steps.removed.outputs.removed_files != ''
-        uses: Ilshidur/action-discord@v2
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          message: |
-            📁 **Changes in `${{ github.repository }}`**
-            Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})
+  - name: Build Discord message
+    id: message
+    run: |
+      MSG="📁 **Changes in '${{ github.repository }}'**\nCommit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})"
+      if [ -n "${{ steps.added.outputs.added_files }}" ]; then
+        MSG="$MSG\n\n**Added files:**\n\`\`\`\n${{ steps.added.outputs.added_files }}\n\`\`\`"
+      fi
+      if [ -n "${{ steps.modified.outputs.modified_files }}" ]; then
+        MSG="$MSG\n\n**Modified files:**\n\`\`\`\n${{ steps.modified.outputs.modified_files }}\n\`\`\`"
+      fi
+      if [ -n "${{ steps.removed.outputs.removed_files }}" ]; then
+        MSG="$MSG\n\n**Removed files:**\n\`\`\`\n${{ steps.removed.outputs.removed_files }}\n\`\`\`"
+      fi
+      echo "discord_message=$MSG" >> $GITHUB_OUTPUT
 
-            Added files:
-            ```
-            ${{ steps.added.outputs.added_files }}
-            ```
-            Modified files:
-            ```
-            ${{ steps.modified.outputs.modified_files }}
-            ```
-            Removed files:
-            ```
-            ${{ steps.removed.outputs.removed_files }}
-            ```
+  - name: Send Discord notification
+    if: steps.added.outputs.added_files != '' || steps.modified.outputs.modified_files != '' || steps.removed.outputs.removed_files != ''
+    uses: Ilshidur/action-discord@v2
+    with:
+      webhook: ${{ secrets.DISCORD_WEBHOOK }}
+      message: ${{ steps.message.outputs.discord_message }}
+```
