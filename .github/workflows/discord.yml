@@ -38,16 +38,22 @@ steps:
   - name: Build Discord message
     id: message
     run: |
+      ADDED_FILES="${{ steps.added.outputs.added_files }}"
+      MODIFIED_FILES="${{ steps.modified.outputs.modified_files }}"
+      REMOVED_FILES="${{ steps.removed.outputs.removed_files }}"
+
       MSG="📁 **Changes in '${{ github.repository }}'**\nCommit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})"
-      if [ -n "${{ steps.added.outputs.added_files }}" ]; then
-        MSG="$MSG\n\n**Added files:**\n\`\`\`\n${{ steps.added.outputs.added_files }}\n\`\`\`"
+
+      if [ -n "$ADDED_FILES" ]; then
+        MSG="$MSG\n\n**Added files:**\n\`\`\`\n$ADDED_FILES\n\`\`\`"
       fi
-      if [ -n "${{ steps.modified.outputs.modified_files }}" ]; then
-        MSG="$MSG\n\n**Modified files:**\n\`\`\`\n${{ steps.modified.outputs.modified_files }}\n\`\`\`"
+      if [ -n "$MODIFIED_FILES" ]; then
+        MSG="$MSG\n\n**Modified files:**\n\`\`\`\n$MODIFIED_FILES\n\`\`\`"
       fi
-      if [ -n "${{ steps.removed.outputs.removed_files }}" ]; then
-        MSG="$MSG\n\n**Removed files:**\n\`\`\`\n${{ steps.removed.outputs.removed_files }}\n\`\`\`"
+      if [ -n "$REMOVED_FILES" ]; then
+        MSG="$MSG\n\n**Removed files:**\n\`\`\`\n$REMOVED_FILES\n\`\`\`"
       fi
+
       echo "discord_message=$MSG" >> $GITHUB_OUTPUT
 
   - name: Send Discord notification
