@@ -1,0 +1,32 @@
+name: Notify on New Files
+on:
+  push:
+    branches:
+      - main  # or whichever branch you want to monitor
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get list of added files
+        id: diff
+        run: |
+          git fetch origin ${{ github.event.before }} --depth=1 || true
+          ADDED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^A' | cut -f2)
+          echo "added_files=$ADDED" >> $GITHUB_OUTPUT
+
+      - name: Send Discord notification
+        if: steps.diff.outputs.added_files != ''
+        uses: Ilshidur/action-discord@v2
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          message: |
+            📁 **New file(s) added to `${{ github.repository }}`**
+            Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})
+            Added files:
+            ```
+            ${{ steps.diff.outputs.added_files }}
+            ```
