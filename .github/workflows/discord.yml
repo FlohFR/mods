@@ -1,81 +1,94 @@
 name: Discord File Changes Notification
 
 on:
-  push:
-    branches:
-      - main
+push:
+branches:
+- main
 
 jobs:
-  notify:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+notify:
+runs-on: ubuntu-latest
+steps:
+- name: Checkout code
+uses: actions/checkout@v4
 
-      - name: Get added files
-        id: added
-        run: |
-          git fetch origin ${{ github.event.before }} --depth=1 || true
-          ADDED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^A' | cut -f2)
-          echo "added_files=$ADDED" >> $GITHUB_OUTPUT
+```
+  - name: Get file changes
+    id: changes
+    run: |
+      git fetch origin ${{ github.event.before }} --depth=1 || true
+      ADDED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^A' | cut -f2)
+      MODIFIED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^M' | cut -f2)
+      REMOVED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^D' | cut -f2)
 
-      - name: Get modified files
-        id: modified
-        run: |
-          git fetch origin ${{ github.event.before }} --depth=1 || true
-          MODIFIED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^M' | cut -f2)
-          echo "modified_files=$MODIFIED" >> $GITHUB_OUTPUT
+      echo "added_files<<EOF" >> $GITHUB_OUTPUT
+      echo "$ADDED" >> $GITHUB_OUTPUT
+      echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Get removed files
-        id: removed
-        run: |
-          git fetch origin ${{ github.event.before }} --depth=1 || true
-          REMOVED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^D' | cut -f2)
-          echo "removed_files=$REMOVED" >> $GITHUB_OUTPUT
+      echo "modified_files<<EOF" >> $GITHUB_OUTPUT
+      echo "$MODIFIED" >> $GITHUB_OUTPUT
+      echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Build Discord message
-        id: message
-        run: |
-          ADDED_FILES="${{ steps.added.outputs.added_files }}"
-          MODIFIED_FILES="${{ steps.modified.outputs.modified_files }}"
-          REMOVED_FILES="${{ steps.removed.outputs.removed_files }}"
+      echo "removed_files<<EOF" >> $GITHUB_OUTPUT
+      echo "$REMOVED" >> $GITHUB_OUTPUT
+      echo "EOF" >> $GITHUB_OUTPUT
 
-          MSG="📁 **Changes in '${{ github.repository }}'**  
+  - name: Build Discord message
+    id: message
+    run: |
+      ADDED_FILES="${{ steps.changes.outputs.added_files }}"
+      MODIFIED_FILES="${{ steps.changes.outputs.modified_files }}"
+      REMOVED_FILES="${{ steps.changes.outputs.removed_files }}"
+
+      MSG="📁 **Changes in '${{ github.repository }}'**
+```
+
 Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})"
 
-          if [ -n "$ADDED_FILES" ]; then
-            MSG="$MSG
+```
+      if [ -n "$ADDED_FILES" ]; then
+        MSG="$MSG
+```
 
 **Added files:**
-\`\`\`
+```
 $ADDED_FILES
-\`\`\`"
-          fi
+```"
+fi
 
-          if [ -n "$MODIFIED_FILES" ]; then
-            MSG="$MSG
+```
+      if [ -n "$MODIFIED_FILES" ]; then
+        MSG="$MSG
+```
 
 **Modified files:**
-\`\`\`
+```
 $MODIFIED_FILES
-\`\`\`"
-          fi
+```"
+fi
 
-          if [ -n "$REMOVED_FILES" ]; then
-            MSG="$MSG
+```
+      if [ -n "$REMOVED_FILES" ]; then
+        MSG="$MSG
+```
 
 **Removed files:**
-\`\`\`
+```
 $REMOVED_FILES
-\`\`\`"
-          fi
+```"
+fi
 
-          echo "discord_message=$MSG" >> $GITHUB_OUTPUT
+```
+      # Write multi-line output safely for GitHub Actions
+      echo "discord_message<<EOF" >> $GITHUB_OUTPUT
+      printf "%s\n" "$MSG" >> $GITHUB_OUTPUT
+      echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Send Discord notification
-        if: steps.added.outputs.added_files != '' || steps.modified.outputs.modified_files != '' || steps.removed.outputs.removed_files != ''
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: ${{ steps.message.outputs.discord_message }}
+  - name: Send Discord notification
+    if: steps.changes.outputs.added_files != '' || steps.changes.outputs.modified_files != '' || steps.changes.outputs.removed_files != ''
+    uses: Ilshidur/action-discord@master
+    env:
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+    with:
+      args: ${{ steps.message.outputs.discord_message }}
+```
