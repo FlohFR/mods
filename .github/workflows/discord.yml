@@ -12,7 +12,6 @@ steps:
 - name: Checkout code
 uses: actions/checkout@v4
 
-```
   - name: Get file changes
     id: changes
     run: |
@@ -41,38 +40,30 @@ uses: actions/checkout@v4
       REMOVED_FILES="${{ steps.changes.outputs.removed_files }}"
 
       MSG="📁 **Changes in '${{ github.repository }}'**
-```
 
 Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})"
 
-```
       if [ -n "$ADDED_FILES" ]; then
         MSG="$MSG
-```
 
-**Added files:**
+Added files:
 $ADDED_FILES"
 fi
 
-```
       if [ -n "$MODIFIED_FILES" ]; then
         MSG="$MSG
-```
 
-**Modified files:**
+Modified files:
 $MODIFIED_FILES"
 fi
 
-```
       if [ -n "$REMOVED_FILES" ]; then
         MSG="$MSG
-```
 
-**Removed files:**
+Removed files:
 $REMOVED_FILES"
 fi
 
-```
       # Write multi-line output safely for GitHub Actions
       echo "discord_message<<EOF" >> $GITHUB_OUTPUT
       printf "%s\n" "$MSG" >> $GITHUB_OUTPUT
@@ -85,4 +76,3 @@ fi
       DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
     with:
       args: ${{ steps.message.outputs.discord_message }}
-```
