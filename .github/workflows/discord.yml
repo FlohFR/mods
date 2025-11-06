@@ -57,7 +57,7 @@ jobs:
 
       - name: Send Discord notification
         if: steps.added.outputs.added_files != '' || steps.modified.outputs.modified_files != '' || steps.removed.outputs.removed_files != ''
-        uses: Ilshidur/action-discord@v2
+        uses: Ilshidur/action-discord@master
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           message: ${{ steps.message.outputs.discord_message }}
