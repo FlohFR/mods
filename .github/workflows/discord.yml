@@ -51,9 +51,7 @@ Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.u
 ```
 
 **Added files:**
-```
-$ADDED_FILES
-```"
+$ADDED_FILES"
 fi
 
 ```
@@ -62,9 +60,7 @@ fi
 ```
 
 **Modified files:**
-```
-$MODIFIED_FILES
-```"
+$MODIFIED_FILES"
 fi
 
 ```
@@ -73,9 +69,7 @@ fi
 ```
 
 **Removed files:**
-```
-$REMOVED_FILES
-```"
+$REMOVED_FILES"
 fi
 
 ```
