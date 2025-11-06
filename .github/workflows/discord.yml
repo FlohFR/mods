@@ -8,76 +8,90 @@ on:
 jobs:
   notify:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get file changes
-        id: changes
+      - name: Get added files
+        id: added
         run: |
           git fetch origin ${{ github.event.before }} --depth=1 || true
-          echo "added<<EOF" >> $GITHUB_OUTPUT
-          git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^A' | cut -f2 || true
-          echo "EOF" >> $GITHUB_OUTPUT
+          ADDED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^A' | cut -f2)
+          echo "added_files=$ADDED" >> $GITHUB_OUTPUT
 
-          echo "modified<<EOF" >> $GITHUB_OUTPUT
-          git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^M' | cut -f2 || true
-          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Get modified files
+        id: modified
+        run: |
+          git fetch origin ${{ github.event.before }} --depth=1 || true
+          MODIFIED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^M' | cut -f2)
+          echo "modified_files=$MODIFIED" >> $GITHUB_OUTPUT
 
-          echo "removed<<EOF" >> $GITHUB_OUTPUT
-          git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^D' | cut -f2 || true
-          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Get removed files
+        id: removed
+        run: |
+          git fetch origin ${{ github.event.before }} --depth=1 || true
+          REMOVED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^D' | cut -f2)
+          echo "removed_files=$REMOVED" >> $GITHUB_OUTPUT
 
       - name: Build Discord embed message
         id: message
         run: |
-          ADDED="${{ steps.changes.outputs.added }}"
-          MODIFIED="${{ steps.changes.outputs.modified }}"
-          REMOVED="${{ steps.changes.outputs.removed }}"
-          AUTHOR="${{ github.event.head_commit.author.name }}"
-          COMMIT_URL="${{ github.event.head_commit.url }}"
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
           REPO="${{ github.repository }}"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          COMMIT_URL="${{ github.event.head_commit.url }}"
+          AUTHOR="${{ github.event.head_commit.author.name }}"
+          ADDED_FILES="${{ steps.added.outputs.added_files }}"
+          MODIFIED_FILES="${{ steps.modified.outputs.modified_files }}"
+          REMOVED_FILES="${{ steps.removed.outputs.removed_files }}"
 
-          DESCRIPTION="**Commit:** [$COMMIT_MSG]($COMMIT_URL)\n**Author:** $AUTHOR"
+          EMBEDS="[]"
 
-          if [ -n "$ADDED" ]; then
-            DESCRIPTION="$DESCRIPTION\n\n🟩 **Added files:**\n\`\`\`\n$ADDED\n\`\`\`"
-          fi
-          if [ -n "$MODIFIED" ]; then
-            DESCRIPTION="$DESCRIPTION\n\n🟨 **Modified files:**\n\`\`\`\n$MODIFIED\n\`\`\`"
-          fi
-          if [ -n "$REMOVED" ]; then
-            DESCRIPTION="$DESCRIPTION\n\n🟥 **Removed files:**\n\`\`\`\n$REMOVED\n\`\`\`"
+          # Create embed for Added files
+          if [ -n "$ADDED_FILES" ]; then
+            ADDED_JSON=$(jq -n \
+              --arg title "🟩 Added files" \
+              --arg desc "$ADDED_FILES" \
+              --arg color "65280" \
+              '{title:$title, description:("```\n"+$desc+"\n```"), color:($color|tonumber)}')
+            EMBEDS=$(echo "$EMBEDS" | jq ". + [$ADDED_JSON]")
           fi
 
-          # Escape the description for JSON
-          EMBED_JSON=$(jq -n \
+          # Create embed for Modified files
+          if [ -n "$MODIFIED_FILES" ]; then
+            MODIFIED_JSON=$(jq -n \
+              --arg title "🟨 Modified files" \
+              --arg desc "$MODIFIED_FILES" \
+              --arg color "16776960" \
+              '{title:$title, description:("```\n"+$desc+"\n```"), color:($color|tonumber)}')
+            EMBEDS=$(echo "$EMBEDS" | jq ". + [$MODIFIED_JSON]")
+          fi
+
+          # Create embed for Removed files
+          if [ -n "$REMOVED_FILES" ]; then
+            REMOVED_JSON=$(jq -n \
+              --arg title "🟥 Removed files" \
+              --arg desc "$REMOVED_FILES" \
+              --arg color "16711680" \
+              '{title:$title, description:("```\n"+$desc+"\n```"), color:($color|tonumber)}')
+            EMBEDS=$(echo "$EMBEDS" | jq ". + [$REMOVED_JSON]")
+          fi
+
+          # Main info embed (commit + author)
+          MAIN_JSON=$(jq -n \
             --arg title "📁 Changes in '$REPO'" \
-            --arg desc "$DESCRIPTION" \
-            --arg url "$COMMIT_URL" \
-            --arg author "$AUTHOR" \
-            --arg time "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-            '{
-              username: "Captain Hook",
-              embeds: [
-                {
-                  title: $title,
-                  description: $desc,
-                  url: $url,
-                  color: 3447003,
-                  footer: { text: "GitHub → Discord Webhook" },
-                  timestamp: $time
-                }
-              ]
-            }')
+            --arg desc "**Commit:** [$COMMIT_MSG]($COMMIT_URL)\n**Author:** $AUTHOR" \
+            --arg color "3447003" \
+            '{title:$title, description:$desc, color:($color|tonumber)}')
 
-          echo "embed_payload=$EMBED_JSON" >> $GITHUB_OUTPUT
+          EMBEDS=$(echo "[$MAIN_JSON]" | jq ". + $EMBEDS")
+
+          PAYLOAD=$(jq -n --argjson embeds "$EMBEDS" '{embeds:$embeds}')
+          echo "discord_message=$PAYLOAD" >> $GITHUB_OUTPUT
 
       - name: Send Discord notification
-        if: steps.changes.outputs.added != '' || steps.changes.outputs.modified != '' || steps.changes.outputs.removed != ''
-        run: |
-          curl -H "Content-Type: application/json" \
-               -d '${{ steps.message.outputs.embed_payload }}' \
-               ${{ secrets.DISCORD_WEBHOOK }}
+        if: steps.added.outputs.added_files != '' || steps.modified.outputs.modified_files != '' || steps.removed.outputs.removed_files != ''
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: ${{ steps.message.outputs.discord_message }}
