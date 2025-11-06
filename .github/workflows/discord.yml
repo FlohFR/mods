@@ -18,36 +18,60 @@ jobs:
           git fetch origin ${{ github.event.before }} --depth=1 || true
           ADDED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^A' | cut -f2)
           echo "added_files=$ADDED" >> $GITHUB_OUTPUT
+
       - name: Get modified files
         id: modified
         run: |
           git fetch origin ${{ github.event.before }} --depth=1 || true
           MODIFIED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^M' | cut -f2)
           echo "modified_files=$MODIFIED" >> $GITHUB_OUTPUT
+
       - name: Get removed files
         id: removed
         run: |
           git fetch origin ${{ github.event.before }} --depth=1 || true
           REMOVED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^D' | cut -f2)
           echo "removed_files=$REMOVED" >> $GITHUB_OUTPUT
+
       - name: Build Discord message
         id: message
         run: |
           ADDED_FILES="${{ steps.added.outputs.added_files }}"
           MODIFIED_FILES="${{ steps.modified.outputs.modified_files }}"
           REMOVED_FILES="${{ steps.removed.outputs.removed_files }}"
-          MSG="📁 **Changes in '${{ github.repository }}'** 
-          Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})"
+
+          MSG="📁 **Changes in '${{ github.repository }}'**  
+Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})"
+
           if [ -n "$ADDED_FILES" ]; then
-            MSG="$MSG**Added files:**\`\`\`$ADDED_FILES\`\`\`"
+            MSG="$MSG
+
+**Added files:**
+\`\`\`
+$ADDED_FILES
+\`\`\`"
           fi
+
           if [ -n "$MODIFIED_FILES" ]; then
-            MSG="$MSG**Modified files:**\`\`\`$MODIFIED_FILES\`\`\`"
+            MSG="$MSG
+
+**Modified files:**
+\`\`\`
+$MODIFIED_FILES
+\`\`\`"
           fi
+
           if [ -n "$REMOVED_FILES" ]; then
-            MSG="$MSG**Removed files:**\`\`\`$REMOVED_FILES\`\`\`"
+            MSG="$MSG
+
+**Removed files:**
+\`\`\`
+$REMOVED_FILES
+\`\`\`"
           fi
+
           echo "discord_message=$MSG" >> $GITHUB_OUTPUT
+
       - name: Send Discord notification
         if: steps.added.outputs.added_files != '' || steps.modified.outputs.modified_files != '' || steps.removed.outputs.removed_files != ''
         uses: Ilshidur/action-discord@master
