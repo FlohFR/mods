@@ -3,7 +3,7 @@ name: Discord File Changes Notification
 on:
   push:
     branches:
-      - main  # Change this if your default branch is different
+      - main
 
 jobs:
   notify:
@@ -53,14 +53,13 @@ jobs:
             MSG="$MSG\n\n🟥 **Removed files:**\n\`\`\`\n$REMOVED\n\`\`\`"
           fi
 
-          echo -e "discord_message<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$MSG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Escape for Discord (replace literal newlines with \n)
+          MSG_ESCAPED=$(echo "$MSG" | jq -Rs . | sed 's/^"//' | sed 's/"$//')
+          echo "discord_message=$MSG_ESCAPED" >> $GITHUB_OUTPUT
 
       - name: Send Discord notification
         if: steps.changes.outputs.added != '' || steps.changes.outputs.modified != '' || steps.changes.outputs.removed != ''
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        uses: tsickert/discord-webhook@v5.4.0
         with:
-          args: ${{ steps.message.outputs.discord_message }}
+          webhook-url: ${{ secrets.DISCORD_WEBHOOK }}
+          content: ${{ steps.message.outputs.discord_message }}
