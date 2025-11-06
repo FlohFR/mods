@@ -12,47 +12,42 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get added files
-        id: added
+      - name: Get file changes
+        id: changes
         run: |
           git fetch origin ${{ github.event.before }} --depth=1 || true
-          ADDED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^A' | cut -f2)
-          echo "added_files=$ADDED" >> $GITHUB_OUTPUT
-
-      - name: Get modified files
-        id: modified
-        run: |
-          git fetch origin ${{ github.event.before }} --depth=1 || true
-          MODIFIED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^M' | cut -f2)
-          echo "modified_files=$MODIFIED" >> $GITHUB_OUTPUT
-
-      - name: Get removed files
-        id: removed
-        run: |
-          git fetch origin ${{ github.event.before }} --depth=1 || true
-          REMOVED=$(git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^D' | cut -f2)
-          echo "removed_files=$REMOVED" >> $GITHUB_OUTPUT
+          echo "added<<EOF" >> $GITHUB_OUTPUT
+          git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^A' | cut -f2 || true
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "modified<<EOF" >> $GITHUB_OUTPUT
+          git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^M' | cut -f2 || true
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "removed<<EOF" >> $GITHUB_OUTPUT
+          git diff --name-status ${{ github.event.before }} ${{ github.sha }} | grep '^D' | cut -f2 || true
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Build Discord message
         id: message
         run: |
-          ADDED_FILES="${{ steps.added.outputs.added_files }}"
-          MODIFIED_FILES="${{ steps.modified.outputs.modified_files }}"
-          REMOVED_FILES="${{ steps.removed.outputs.removed_files }}"
-          MSG="📁 **Changes in '${{ github.repository }}'**\nCommit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})"
-          if [ -n "$ADDED_FILES" ]; then
-            MSG="$MSG\n\n**Added files:**\n\`\`\`\n$ADDED_FILES\n\`\`\`"
+          ADDED="${{ steps.changes.outputs.added }}"
+          MODIFIED="${{ steps.changes.outputs.modified }}"
+          REMOVED="${{ steps.changes.outputs.removed }}"
+          MSG="📁 **Changes in '${{ github.repository }}'**\n**Commit:** [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})"
+          if [ -n "$ADDED" ]; then
+            MSG="$MSG\n\n**🟩 Added files:**\n\`\`\`\n$ADDED\n\`\`\`"
           fi
-          if [ -n "$MODIFIED_FILES" ]; then
-            MSG="$MSG\n\n**Modified files:**\n\`\`\`\n$MODIFIED_FILES\n\`\`\`"
+          if [ -n "$MODIFIED" ]; then
+            MSG="$MSG\n\n**🟨 Modified files:**\n\`\`\`\n$MODIFIED\n\`\`\`"
           fi
-          if [ -n "$REMOVED_FILES" ]; then
-            MSG="$MSG\n\n**Removed files:**\n\`\`\`\n$REMOVED_FILES\n\`\`\`"
+          if [ -n "$REMOVED" ]; then
+            MSG="$MSG\n\n**🟥 Removed files:**\n\`\`\`\n$REMOVED\n\`\`\`"
           fi
-          echo "discord_message=$MSG" >> $GITHUB_OUTPUT
+          echo -e "discord_message<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$MSG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Send Discord notification
-        if: steps.added.outputs.added_files != '' || steps.modified.outputs.modified_files != '' || steps.removed.outputs.removed_files != ''
+        if: steps.changes.outputs.added != '' || steps.changes.outputs.modified != '' || steps.changes.outputs.removed != ''
         uses: Ilshidur/action-discord@master
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
