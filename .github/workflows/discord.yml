@@ -36,15 +36,15 @@ jobs:
           ADDED_FILES="${{ steps.added.outputs.added_files }}"
           MODIFIED_FILES="${{ steps.modified.outputs.modified_files }}"
           REMOVED_FILES="${{ steps.removed.outputs.removed_files }}"
-          MSG="📁 **Changes in '${{ github.repository }}'**\nCommit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})"
+          MSG="📁 **Changes in '${{ github.repository }}'**Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})"
           if [ -n "$ADDED_FILES" ]; then
-            MSG="$MSG\n\n**Added files:**\n\`\`\`\n$ADDED_FILES\n\`\`\`"
+            MSG="$MSG**Added files:**\`\`\`$ADDED_FILES\`\`\`"
           fi
           if [ -n "$MODIFIED_FILES" ]; then
-            MSG="$MSG\n\n**Modified files:**\n\`\`\`\n$MODIFIED_FILES\n\`\`\`"
+            MSG="$MSG**Modified files:**\`\`\`$MODIFIED_FILES\`\`\`"
           fi
           if [ -n "$REMOVED_FILES" ]; then
-            MSG="$MSG\n\n**Removed files:**\n\`\`\`\n$REMOVED_FILES\n\`\`\`"
+            MSG="$MSG**Removed files:**\`\`\`$REMOVED_FILES\`\`\`"
           fi
           echo "discord_message=$MSG" >> $GITHUB_OUTPUT
       - name: Send Discord notification
