@@ -1,4 +1,3 @@
-
 name: Discord File Changes Notification
 
 on:
@@ -40,9 +39,7 @@ jobs:
           ADDED_FILES="${{ steps.added.outputs.added_files }}"
           MODIFIED_FILES="${{ steps.modified.outputs.modified_files }}"
           REMOVED_FILES="${{ steps.removed.outputs.removed_files }}"
-
           MSG="📁 **Changes in '${{ github.repository }}'**\nCommit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})"
-
           if [ -n "$ADDED_FILES" ]; then
             MSG="$MSG\n\n**Added files:**\n\`\`\`\n$ADDED_FILES\n\`\`\`"
           fi
@@ -52,12 +49,12 @@ jobs:
           if [ -n "$REMOVED_FILES" ]; then
             MSG="$MSG\n\n**Removed files:**\n\`\`\`\n$REMOVED_FILES\n\`\`\`"
           fi
-
           echo "discord_message=$MSG" >> $GITHUB_OUTPUT
 
       - name: Send Discord notification
         if: steps.added.outputs.added_files != '' || steps.modified.outputs.modified_files != '' || steps.removed.outputs.removed_files != ''
         uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          message: ${{ steps.message.outputs.discord_message }}
+          args: ${{ steps.message.outputs.discord_message }}
